@@ -1,6 +1,7 @@
 #!/bin/bash
 
 ENV_FILE="/.env"
+HOME="${HOME:-/tmp}"
 CRON_CONFIG_FILE="${HOME}/crontabs"
 
 #################### Function ####################
@@ -28,24 +29,20 @@ function color() {
 #     None
 ########################################
 function check_rclone_connection() {
-    # check configuration exist
     local RCLONE_CONFIG_FILE=$(rclone config file 2>&1 | grep -o '/[^[:space:]]*rclone\.conf')
     grep -c "\[${RCLONE_REMOTE_NAME}\]" "${RCLONE_CONFIG_FILE}" > /dev/null 2>&1
     if [[ $? != 0 ]]; then
         color red "rclone configuration information not found"
-        color blue "Please configure rclone first, check https://github.com/rodriguestiago0/actualbudget-backup#configure-rclone-%EF%B8%8F-must-read-%EF%B8%8F"
+        color blue "Please configure rclone first"
         exit 1
     fi
 
-    # check flags validity
     rclone ${RCLONE_GLOBAL_FLAG} version > /dev/null 2>&1
     if [[ $? != 0 ]]; then
         color red "illegal rclone global flags"
-        color blue "Please check https://rclone.org/flags/"
         exit 1
     fi
 
-    # check connection
     local ERROR_COUNT=0
 
     for RCLONE_REMOTE_X in "${RCLONE_REMOTE_LIST[@]}"
@@ -57,7 +54,6 @@ function check_rclone_connection() {
             rclone ${RCLONE_GLOBAL_FLAG} mkdir "${RCLONE_REMOTE_X}"
             if [[ $? != 0 ]]; then
                 color red "storage system connection failure $(color yellow "[${RCLONE_REMOTE_X}]")"
-
                 ((ERROR_COUNT++))
             fi
         fi
@@ -78,11 +74,6 @@ function check_rclone_connection() {
     fi
 }
 
-########################################
-# Check file is exist.
-# Arguments:
-#     file
-########################################
 function check_file_exist() {
     if [[ ! -f "$1" ]]; then
         color red "cannot access $1: No such file"
@@ -90,11 +81,6 @@ function check_file_exist() {
     fi
 }
 
-########################################
-# Check directory is exist.
-# Arguments:
-#     directory
-########################################
 function check_dir_exist() {
     if [[ ! -d "$1" ]]; then
         color red "cannot access $1: No such directory"
@@ -102,15 +88,6 @@ function check_dir_exist() {
     fi
 }
 
-########################################
-# Export variables from .env file.
-# Arguments:
-#     None
-# Outputs:
-#     variables with prefix 'DOTENV_'
-# Reference:
-#     https://gist.github.com/judy2k/7656bfe3b322d669ef75364a46327836#gistcomment-3632918
-########################################
 function export_env_file() {
     if [[ -f "${ENV_FILE}" ]]; then
         color blue "find \"${ENV_FILE}\" file and export variables"
@@ -120,17 +97,6 @@ function export_env_file() {
     fi
 }
 
-########################################
-# Get variables from
-#     environment variables,
-#     secret file in environment variables,
-#     secret file in .env file,
-#     environment variables in .env file.
-# Arguments:
-#     variable name
-# Outputs:
-#     variable value
-########################################
 function get_env() {
     local VAR="$1"
     local VAR_FILE="${VAR}_FILE"
@@ -151,23 +117,13 @@ function get_env() {
     export "${VAR}=${VALUE}"
 }
 
-########################################
-# Get RCLONE_REMOTE_LIST variables.
-# Arguments:
-#     None
-# Outputs:
-#     variable value
-########################################
 function get_rclone_remote_list() {
-    # RCLONE_REMOTE_LIST
     RCLONE_REMOTE_LIST=()
-
     local i=0
     local RCLONE_REMOTE_NAME_X_REFER
     local RCLONE_REMOTE_DIR_X_REFER
     local RCLONE_REMOTE_X
 
-    # for multiple
     while true; do
         RCLONE_REMOTE_NAME_X_REFER="RCLONE_REMOTE_NAME_${i}"
         RCLONE_REMOTE_DIR_X_REFER="RCLONE_REMOTE_DIR_${i}"
@@ -187,11 +143,9 @@ function get_rclone_remote_list() {
 
 function init_actual_sync_list() {
     ACTUAL_BUDGET_SYNC_ID_LIST=()
-
     local i=0
     local ACTUAL_BUDGET_SYNC_ID_X_REFER
 
-    # for multiple
     while true; do
         ACTUAL_BUDGET_SYNC_ID_X_REFER="ACTUAL_BUDGET_SYNC_ID_${i}"
         get_env "${ACTUAL_BUDGET_SYNC_ID_X_REFER}"
@@ -213,11 +167,9 @@ function init_actual_sync_list() {
 
 function init_actual_e2e_list(){
     ACTUAL_BUDGET_E2E_PASSWORD_LIST=()
-
     local i=0
     local ACTUAL_BUDGET_E2E_PASSWORD_X_REFER
 
-    # for multiple
     while true; do
         ACTUAL_BUDGET_E2E_PASSWORD_X_REFER="ACTUAL_BUDGET_E2E_PASSWORD_${i}"
         get_env "${ACTUAL_BUDGET_E2E_PASSWORD_X_REFER}"
@@ -238,7 +190,6 @@ function init_actual_e2e_list(){
 }
 
 function init_actual_env(){
-    # ACTUAL BUDGET
     get_env ACTUAL_BUDGET_URL
     ACTUAL_BUDGET_URL="${ACTUAL_BUDGET_URL:-"https://localhost:5006"}"
     color yellow "ACTUAL_BUDGET_URL: ${ACTUAL_BUDGET_URL}"
@@ -257,51 +208,35 @@ function init_actual_env(){
     ACTUAL_BUDGET_SYNC_ID_0="${ACTUAL_BUDGET_SYNC_ID}"
 
     init_actual_sync_list
-	
-	
-	get_env ACTUAL_BUDGET_E2E_PASSWORD
-	ACTUAL_BUDGET_E2E_PASSWORD_0="${ACTUAL_BUDGET_E2E_PASSWORD}"
-	
-	init_actual_e2e_list
+    
+    get_env ACTUAL_BUDGET_E2E_PASSWORD
+    ACTUAL_BUDGET_E2E_PASSWORD_0="${ACTUAL_BUDGET_E2E_PASSWORD}"
+    
+    init_actual_e2e_list
 }
 
-########################################
-# Initialization environment variables.
-# Arguments:
-#     None
-# Outputs:
-#     environment variables
-########################################
 function init_env() {
-    # export
     export_env_file
 
-    # CRON
     get_env CRON
     CRON="${CRON:-"0 0 * * *"}"
 
-    # RCLONE_REMOTE_NAME
     get_env RCLONE_REMOTE_NAME
     RCLONE_REMOTE_NAME="${RCLONE_REMOTE_NAME:-"ActualBudgetBackup"}"
     RCLONE_REMOTE_NAME_0="${RCLONE_REMOTE_NAME}"
 
-    # RCLONE_REMOTE_DIR
     get_env RCLONE_REMOTE_DIR
     RCLONE_REMOTE_DIR="${RCLONE_REMOTE_DIR:-"/ActualBudgetBackup/"}"
     RCLONE_REMOTE_DIR_0="${RCLONE_REMOTE_DIR}"
 
-    # get RCLONE_REMOTE_LIST
     get_rclone_remote_list
 
-    # RCLONE_GLOBAL_FLAG
     get_env RCLONE_GLOBAL_FLAG
     RCLONE_GLOBAL_FLAG="${RCLONE_GLOBAL_FLAG:-""}"
 
-    # BACKUP_KEEP_DAYS
     get_env BACKUP_KEEP_DAYS
     BACKUP_KEEP_DAYS="${BACKUP_KEEP_DAYS:-"0"}"
 
-    # ZIP_ENABLE
     get_env ZIP_ENABLE
     if [[ "${ZIP_ENABLE^^}" == "FALSE" ]]; then
         ZIP_ENABLE="FALSE"
@@ -309,11 +244,9 @@ function init_env() {
         ZIP_ENABLE="TRUE"
     fi
 
-    # ZIP_PASSWORD
     get_env ZIP_PASSWORD
     ZIP_PASSWORD="${ZIP_PASSWORD:-""}"
 
-    # ZIP_TYPE
     get_env ZIP_TYPE
     if [[ "${ZIP_TYPE,,}" == "7z" ]]; then
         ZIP_TYPE="7z"
@@ -321,14 +254,12 @@ function init_env() {
         ZIP_TYPE="zip"
     fi
 
-    # BACKUP_FILE_DATE_FORMAT
     get_env BACKUP_FILE_SUFFIX
     get_env BACKUP_FILE_DATE
     get_env BACKUP_FILE_DATE_SUFFIX
     BACKUP_FILE_DATE="$(echo "${BACKUP_FILE_DATE:-"%Y%m%d"}${BACKUP_FILE_DATE_SUFFIX}" | sed 's/[^0-9a-zA-Z%_-]//g')"
     BACKUP_FILE_DATE_FORMAT="$(echo "${BACKUP_FILE_SUFFIX:-"${BACKUP_FILE_DATE}"}" | sed 's/\///g')"
 
-    # TIMEZONE
     get_env TIMEZONE
     local TIMEZONE_MATCHED_COUNT=$(ls "/usr/share/zoneinfo/${TIMEZONE}" 2> /dev/null | wc -l)
     if [[ "${TIMEZONE_MATCHED_COUNT}" -ne 1 ]]; then

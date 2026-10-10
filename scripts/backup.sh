@@ -19,26 +19,17 @@ function prepare_login_json() {
 }
 
 # ==========================================================
-# 🧩 NEW download_actual_budget() using @actual-app/api
+# 🧩 download_actual_budget() using pre-installed @actual-app/api
 # ==========================================================
 function download_actual_budget() {
     color blue "Downloading Actual Budget backup using @actual-app/api"
 
     # Parameters:
-    API_VERSION=${ACTUAL_API_VERSION:-latest}
     API_DOWNLOAD_PATH=${ACTUAL_API_DOWNLOAD_PATH:-/tmp/actual-download}
 
     # Clean and prepare folders
     mkdir -p "${API_DOWNLOAD_PATH}"
     mkdir -p "backup"
-
-    color green "Installing @actual-app/api@$API_VERSION (if needed)..."
-    if ! [ -d "/app/node_modules/@actual-app/api" ]; then
-        echo "Installing @actual-app/api@$API_VERSION..."
-        npm install --prefix /app "@actual-app/api@$API_VERSION" --unsafe-perm
-    else
-        color green "@actual-app/api@$API_VERSION already installed."
-    fi
 
     # Convert arrays to comma-separated strings
     SYNC_IDS="$(IFS=, ; echo "${ACTUAL_BUDGET_SYNC_ID_LIST[*]}")"

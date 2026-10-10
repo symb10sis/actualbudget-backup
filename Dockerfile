@@ -1,23 +1,23 @@
 # syntax=docker/dockerfile:1
 
 FROM rclone/rclone:sha-9ee9d0a
-# FROM rclone/rclone:1.75.0
 
 LABEL "repository"="https://github.com/rodriguestiago0/actual-backup" \
   "homepage"="https://github.com/rodriguestiago0/actual-backup"
 
-ARG USER_NAME="backuptool"
-ARG USER_ID="1100"
-
 ENV LOCALTIME_FILE="/tmp/localtime"
+ENV HOME="/tmp"
+ENV npm_config_cache="/tmp/.npm"
+ENV NODE_PATH="/app/node_modules"
 
 COPY scripts/*.js /app/
 COPY scripts/*.sh /app/
 
-RUN chmod +x /app/* \
-  && apk add --no-cache grep file bash supercronic curl jq zip 7zip nodejs npm wget tar xz tzdata \
+RUN apk add --no-cache grep file bash supercronic curl jq zip 7zip nodejs npm wget tar xz tzdata \
   && ln -sf "${LOCALTIME_FILE}" /etc/localtime \
-  && addgroup -g "${USER_ID}" "${USER_NAME}" \
-  && adduser -u "${USER_ID}" -Ds /bin/sh -G "${USER_NAME}" "${USER_NAME}"
+  && mkdir -p /app/node_modules /config /backup /tmp \
+  && cd /app && npm install "@actual-app/api@latest" \
+  && chmod -R 777 /app /config /backup /tmp \
+  && chmod +x /app/*.sh
 
 ENTRYPOINT ["/app/entrypoint.sh"]
